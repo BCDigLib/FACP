@@ -59,17 +59,31 @@ $fh->print("<mods:modsCollection xmlns:xlink=\"http://www.w3.org/1999/xlink\" xm
 
 my $usedRange = $Sheet->UsedRange()->{Value};
 
-foreach my $row (@$usedRange){
+
+my $LastRow = $Sheet->UsedRange->Find({What=>"*",
+    SearchDirection=>xlPrevious,
+    SearchOrder=>xlByRows})->{Row};
+
+print "last row is $LastRow\n";
+
+
+#my $nextRowID = $Sheet->Range('A'.$LastRow)->{Value};
+
+shift(@$usedRange);
+
+my $CurrentRow=2;
+
+#foreach my $row (@$usedRange){
+
+while (my $row=shift @$usedRange){
 
 
 
 #Read a tab-delimited line of metadata and assign each element to an appropriately named variable
 #
-	my ($authors, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $columnTitle, $type, $partNumber, $partName, $url ,$doi, $note2) = @$row;
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $note2) = @$row;
 
-	my @authors = split(/\s*;\s*/, $authors);
 
-        print "@authors\n";  
 	$fh->print("<mods:mods>\n");
 
 ### 1. MODS TitleInfo Element
@@ -94,67 +108,87 @@ $fh->print("<mods:titleInfo>\n");
 	$fh->print ("\t<mods:title>$title<\/mods:title>\n");
 	if ($subtitle) 
 		{$fh->print ("\t<mods:subTitle>$subtitle<\/mods:subTitle>\n");}
-	if ($partNumber) 
-		{$fh->print ("\t<mods:partNumber>$partNumber<\/mods:partNumber>\n");}
-	if ($partName) 
-		{$fh->print ("\t<mods:partName>$partName<\/mods:partName>\n");}
 	$fh->print("<\/mods:titleInfo>\n\n");
 
-##ColumnTitle
-if ($columnTitle){
-	$fh->print("<mods:titleInfo displayLabel=\"columnTitle\">\n");
-	my $nonsort;
-	if ($columnTitle =~ m/^The (.*)/) 
-		{$nonsort = "The"; 
-		$title=$1} 
-	elsif ($columnTitle =~ m/^A (.*)/) 
-		{$nonsort = "A";
-		$title=$1} 
-	elsif ($columnTitle =~ m /^An (.*)/) 
-		{$nonsort = "An";
-		$columnTitle=$1}; 
-	
-	if ($nonsort) {$fh->print ("\t<mods:nonSort>$nonsort<\/mods:nonSort>\n")};
 
-
-	$fh->print ("\t<mods:title>$columnTitle<\/mods:title>\n");
-	$fh->print("<\/mods:titleInfo>\n\n");};
 
 ### 2. MODS Name Element
 
-foreach (@authors) {
+	print "Before while loop: CurrentRow is $CurrentRow; LastRow is $LastRow; wfID is $wfID\n"; 
 
-m/(\w+\'*\w*\-*\w*\'*\w*)\s*$/;
-my $family_name=$1;
-my $given_name=$`;
-$given_name =~ s/\s*$//;
-my $isFaculty='false';
+	my $namesToProcess="true";
 
-###### attempt to use username
-foreach my $e (@{$data->{'snToName'}})  {
-	if ($e->{'shortname'} eq $family_name) {
-		$isFaculty='true';
+	my $NextID = $Sheet->Range('A'.($CurrentRow+1))->{Value};
+
+	while ($namesToProcess eq "true") 
+		{
+
+		if ($shortname && $given2)
+			{
+			$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
+			$fh->print ("<mods:affiliation><\/mods:affiliation>\n\t");
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"\">marcrelator<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
+			$fh->print ("<mods:description>$shortname<\/mods:description>\n");
+			$fh->print ("<\/mods:name>\n");
+
+			}
+
+		if ($shortname && !$given2)
+			{
+			$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
+			$fh->print ("<mods:affiliation><\/mods:affiliation>\n\t");
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
+			$fh->print ("<mods:description>$shortname<\/mods:description>\n");
+			$fh->print ("<\/mods:name>\n");
+
+			}
+		if (!$shortname && $given2)
+			{
+			$fh->print ("<mods:name type=\"personal\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
+
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
+			$fh->print ("<\/mods:name>\n");
+
+			}
+
+		if (!$shortname && !$given2)
+			{
+			$fh->print ("<mods:name type=\"personal\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
+			$fh->print ("<\/mods:name>\n");
+
+			}
 		
+		if ($Sheet->Range('A'.($CurrentRow+1))->{Value} && $wfID == $Sheet->Range('A'.($CurrentRow+1))->{Value})
 
-		$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
-		foreach my $i (@{$e->{'mods:namePart'}}) {
-			$fh->print ("<mods:namePart type=\"$i->{'type'}\">$i->{'content'}<\/mods:namePart>\n\t");
-			};
-		$fh->print ("<mods:displayForm>$e->{'mods:displayForm'}<\/mods:displayForm>\n\t");
-		$fh->print ("<mods:affiliation>$e->{'mods:affiliation'}<\/mods:affiliation>\n\t");
-		$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">Author<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
-		$fh->print ("<mods:description>$e->{'mods:description'}<\/mods:description>\n");
-		$fh->print ("<\/mods:name>\n");
+			{
+				print "next row is another one for this record\n";
+				$row = shift @$usedRange;
+				($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $note2) = @$row;
+				
+
+				$CurrentRow++;
+			
+			}
+		else
+			{
+				$namesToProcess="false";
+			}
 		}
-	
-
-	}
-if ($isFaculty eq 'false')  {
-###Personal Name
-$fh->print ("<mods:name type=\"personal\">\n\t<mods:namePart type=\"family\">$family_name<\/mods:namePart>\n\t<mods:namePart type=\"given\">$given_name<\/mods:namePart>\n\t<mods:displayForm>$family_name, $given_name<\/mods:displayForm>\n\t<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">Author<\/mods:roleTerm>\n\t<\/mods:role>\n<\/mods:name>\n\n");};
-
-	} 
-
 
 
 ### 3. MODS TypeOfResource Element
@@ -271,6 +305,10 @@ $fh->print("<\/mods:recordInfo>\n");
 ### Close MODS Record
 
 	$fh->print("<\/mods:mods>\n\n");
+
+### Increment CurrentRow
+
+$CurrentRow++;
 
 };
 
