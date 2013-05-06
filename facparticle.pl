@@ -1,20 +1,13 @@
 #!C:/Perl/bin/perl -w
 use strict;
 use IO::File;
-use XML::Simple;
 use File::Basename qw(basename);
 use Win32::OLE qw(in with);
 use Win32::OLE::Const 'Microsoft Excel';
 use utf8;
+use Cwd;
+
 my $filename = $ARGV[0];
-print "$filename\n";
-# create object
-my $xml = new XML::Simple;
-
-# read XML file
-my $data = $xml->XMLin("facultyNames.xml");
-
-#print "read xml file  $data->{'snToName'}->[0]->{'mods:namePart'}->[1]->{'content'}  hi\n\n";
 
 
 $Win32::OLE::Warn = 3; # Die on Errors.
@@ -22,7 +15,14 @@ $Win32::OLE::Warn = 3; # Die on Errors.
 # ::Warn = 2; throws the errors, but #
 # expects that the programmer deals  #
 
-my $excelfile = "C:\\Users\\mckelvee\\Documents\\FACPLatestScripts\\" . $filename;
+my $excelfile=$filename;
+
+my $dir = getcwd;
+$dir=~s/\//\\/g;
+print "dir is $dir\n";
+$excelfile=$dir."//".$excelfile;
+
+
 print "$excelfile\n";
 
 #First, we need an excel object to work with, so if there isn't an open one, we create a new one, and we define how the object is going to exit
@@ -46,6 +46,7 @@ $Sheet->Activate();
 #
 $filename =~ s/xlsx|xls/xml/;
 my $output_file = $filename;
+
 
 #Open the output file; print xml declaration and root node
 #
@@ -81,7 +82,7 @@ while (my $row=shift @$usedRange){
 
 #Read a tab-delimited line of metadata and assign each element to an appropriately named variable
 #
-	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $note2) = @$row;
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version) = @$row;
 
 
 	$fh->print("<mods:mods>\n");
@@ -130,7 +131,7 @@ $fh->print("<mods:titleInfo>\n");
 			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
 			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
 			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
-			$fh->print ("<mods:affiliation><\/mods:affiliation>\n\t");
+			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
 			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"\">marcrelator<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
 			$fh->print ("<mods:description>$shortname<\/mods:description>\n");
 			$fh->print ("<\/mods:name>\n");
@@ -143,7 +144,7 @@ $fh->print("<mods:titleInfo>\n");
 			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
 			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
 			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
-			$fh->print ("<mods:affiliation><\/mods:affiliation>\n\t");
+			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
 			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
 			$fh->print ("<mods:description>$shortname<\/mods:description>\n");
 			$fh->print ("<\/mods:name>\n");
@@ -178,7 +179,7 @@ $fh->print("<mods:titleInfo>\n");
 			{
 				print "next row is another one for this record\n";
 				$row = shift @$usedRange;
-				($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $note2) = @$row;
+				($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version) = @$row;
 				
 
 				$CurrentRow++;
@@ -224,14 +225,63 @@ $fh->print("<\/mods:physicalDescription>\n\n");
 
 
 ### 11. MODS Note Element
-#if ($note1) {$fh->print("\t<mods:note>$note1<\/mods:note>\n\n");}
-if ($note2) {$fh->print("\t<mods:note>$note2<\/mods:note>\n\n");}
-if ($type ne "working paper")  {$fh->print("\t<mods:note type=\"version identification\">Version of record.<\/mods:note>\n\n")};
+if ($setText) {$fh->print("\t<mods:note>$setText<\/mods:note>\n\n");}
+
+if (($type ne "working paper") && $version==1)  
+	{
+		$fh->print("\t<mods:note type=\"version identification\">Version of record.<\/mods:note>\n\n")
+	}
+
+  if (($type ne "working paper") && $version==2)
+	{
+		$fh->print("\t<mods:note type=\"version identification\">Pre-print version of an article published in ")
+	}
+
+	if (($type ne "working paper") && $version==3)
+	{
+		$fh->print("\t<mods:note type=\"version identification\">Post-print version of an article published in ")
+	};
+
+	if (($type ne "working paper") && ($version==2||$version==3))
+	{
+		my $hostnonsort;
+		if ($journalTitle =~ m/^The (.*)/) 
+			{$hostnonsort = "The"; 
+			$journalTitle=$1} 
+		elsif ($journalTitle =~ m/^A (.*)/) 
+			{$hostnonsort = "A";
+			$journalTitle=$1} 
+		elsif ($title =~ m /^An (.*)/) 
+			{$hostnonsort = "An";
+			$journalTitle=$1}; 
+	
+		if ($hostnonsort) {$fh->print ("$hostnonsort ")};
+
+		$fh->print ("$journalTitle");
+
+  
+ 		$fh->print(" $enum1");
+
+		if ($enum2) {$fh->print ("\($enum2\)");};
+
+		if ($endPage) {$fh->print (": $startPage-$endPage\.");}
+		else {$fh->print (": $startPage\.");}
+		if ($doi) {$fh->print(" doi:$doi\.");}
+		$fh->print("<\/mods:note>\n\n");
+
+		};
+
+
+
+
+
 ### 11. MODS Subject Element
 
 
 ### 14. MODS RelatedItem element
 
+if ($version == 1)
+	{
 	$fh->print("<mods:relatedItem type=\"host\">\n\t<mods:titleInfo>");
 	my $hostnonsort;
 	if ($journalTitle =~ m/^The (.*)/) 
@@ -268,9 +318,10 @@ $fh->print ("\t\t</mods:extent>\n");
 
 
 	$fh->print("<\/mods:relatedItem>\n");
+	}
 
 ### 15. Mods Identifier
-if ($doi) {$fh->print("\t<mods:identifier type=\"doi\">$doi<\/mods:identifier>\n\n");}
+if ($doi && $version == 1) {$fh->print("\t<mods:identifier type=\"doi\">$doi<\/mods:identifier>\n\n");}
 ### 16. MODS Location Element
 
 ##if ($url) {
