@@ -229,7 +229,12 @@ if ($setText) {$fh->print("\t<mods:note>$setText<\/mods:note>\n\n");}
 
 if (($type ne "working paper") && $version==1)  
 	{
-		$fh->print("\t<mods:note type=\"version identification\">Version of record.<\/mods:note>\n\n")
+		$fh->print("\t<mods:note type=\"version identification\">Version of record.<\/mods:note>\n\n")			
+	}
+
+  if ($doi && $version==1)  
+	{ 
+		$fh->print("\t<mods:note>Available on publisher's site: http://dx.doi.org/$doi<\/mods:note>\n\n");	
 	}
 
   if (($type ne "working paper") && $version==2)
@@ -269,10 +274,14 @@ if (($type ne "working paper") && $version==1)
 		if ($doi) {$fh->print(" doi:$doi\.");}
 		$fh->print("<\/mods:note>\n\n");
 
+
 		};
 
 
-
+	if ($doi && ($version==2||$version==3))
+	{
+		$fh->print("\t<mods:note>Final published version is available at: http://dx.doi.org/$doi<\/mods:note>\n\n");
+	}
 
 
 ### 11. MODS Subject Element
