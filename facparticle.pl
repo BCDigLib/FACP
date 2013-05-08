@@ -234,7 +234,7 @@ if (($type ne "working paper") && $version==1)
 
   if ($doi && $version==1)  
 	{ 
-		$fh->print("\t<mods:note>Available on publisher's site: http://dx.doi.org/$doi<\/mods:note>\n\n");	
+		$fh->print("\t<mods:note>Also available on publisher's site: http://dx.doi.org/$doi<\/mods:note>\n\n");	
 	}
 
   if (($type ne "working paper") && $version==2)
