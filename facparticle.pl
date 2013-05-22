@@ -82,7 +82,7 @@ while (my $row=shift @$usedRange){
 
 #Read a tab-delimited line of metadata and assign each element to an appropriately named variable
 #
-	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version) = @$row;
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $digitalOrigin) = @$row;
 
 
 	$fh->print("<mods:mods>\n");
@@ -179,7 +179,7 @@ $fh->print("<mods:titleInfo>\n");
 			{
 				print "next row is another one for this record\n";
 				$row = shift @$usedRange;
-				($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version) = @$row;
+				($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $digitalOrigin) = @$row;
 				
 
 				$CurrentRow++;
@@ -218,7 +218,20 @@ $fh->print("<mods:language>\n\t<mods:languageTerm type=\"text\">English<\/mods:l
 $fh->print("<mods:physicalDescription>\n");
 	$fh->print("\t<mods:form authority=\"marcform\">electronic<\/mods:form>\n");
 	$fh->print("\t<mods:internetMediaType>application/pdf<\/mods:internetMediaType>\n");
-	$fh->print("\t<mods:digitalOrigin>reformatted digital<\/mods:digitalOrigin>\n");
+
+	if ($digitalOrigin==1)
+			{
+				$fh->print("\t<mods:digitalOrigin>reformatted digital<\/mods:digitalOrigin>\n");
+			}
+	if ($digitalOrigin==2)
+			{
+				$fh->print("\t<mods:digitalOrigin>born digital<\/mods:digitalOrigin>\n");
+			}		
+	if ($digitalOrigin==3)
+			{
+				$fh->print("\t<mods:digitalOrigin>digitized other analog<\/mods:digitalOrigin>\n");
+			}
+
 $fh->print("<\/mods:physicalDescription>\n\n");
 
 ### 8. MODS Abstract
