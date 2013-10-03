@@ -6,238 +6,204 @@ use Win32::OLE qw(in with);
 use Win32::OLE::Const 'Microsoft Excel';
 use utf8;
 use Cwd;
+use XML::Simple;
+use Data::Dumper;
 
-my $filename = $ARGV[0];
+main();
 
+sub main 
+{
 
-$Win32::OLE::Warn = 3; # Die on Errors.
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors);
 
-# ::Warn = 2; throws the errors, but #
-# expects that the programmer deals  #
+	my($worksheet_name, $Sheet, $excel_object) = setup_EXCEL_object(shift);
 
-my $excelfile=$filename;
+	my $fh=open_ouput_file($worksheet_name);
 
-my $dir = getcwd;
-$dir=~s/\//\\/g;
-print "dir is $dir\n";
-$excelfile=$dir."//".$excelfile;
+	my $project_type = project_type_determination();
 
+	my $digital_origin = digital_origin_determination();
 
-print "$excelfile\n";
+	my $data = read_faculty_names_xml();
 
-#First, we need an excel object to work with, so if there isn't an open one, we create a new one, and we define how the object is going to exit
+	##read and process each row in the EXCEL file
+	my $usedRange = $Sheet->UsedRange()->{Value};
+			
+		shift(@$usedRange);
 
-my $Excel = Win32::OLE->GetActiveObject('Excel.Application')
-        || Win32::OLE->new('Excel.Application', 'Quit');
-
-#For the sake of this program, we'll turn off all the alert boxes, such as the SaveAs response "This file already exists", etc. using the DisplayAlerts property.
-
-$Excel->{DisplayAlerts}=0;   
-
-#open an existing file to work with 
-                                                 
-my $Book = $Excel->Workbooks->Open($excelfile);   
-
-#Create a reference to a worksheet object and activate the sheet to give it focus so that actions taken on the workbook or application objects occur on this sheet unless otherwise specified.
-
-my $Sheet = $Book->Worksheets("Sheet1");
-$Sheet->Activate();  
-#Determine basename of output file to be written in current directory
-#
-$filename =~ s/xlsx|xls/xml/;
-my $output_file = $filename;
+		my $CurrentRow=2;
 
 
-#Open the output file; print xml declaration and root node
-#
-my $fh = IO::File->new($output_file, 'w')
-	or die "unable to open output file for writing: $!";
-binmode($fh, ':utf8');
-$fh->print("<?xml version='1.0' encoding='UTF-8' ?>\n");
-$fh->print("<mods:modsCollection xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:mods=\"http://www.loc.gov/mods/v3\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-3.xsd\">\n");
-
-##read and process rows
-
-my $usedRange = $Sheet->UsedRange()->{Value};
-
-
-my $LastRow = $Sheet->UsedRange->Find({What=>"*",
-    SearchDirection=>xlPrevious,
-    SearchOrder=>xlByRows})->{Row};
-
-print "last row is $LastRow\n";
-
-
-#my $nextRowID = $Sheet->Range('A'.$LastRow)->{Value};
-
-shift(@$usedRange);
-
-my $CurrentRow=2;
-
-#foreach my $row (@$usedRange){
-
-while (my $row=shift @$usedRange){
-
-
-
-#Read a tab-delimited line of metadata and assign each element to an appropriately named variable
-#
-	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $digitalOrigin) = @$row;
-
-
-	$fh->print("<mods:mods>\n");
-
-### 1. MODS TitleInfo Element
-
-$fh->print("<mods:titleInfo>\n");
-
-##Deal with initial articles
-	my $nonsort;
-	if ($title =~ m/^The (.*)/) 
-		{$nonsort = "The"; 
-		$title=$1} 
-	elsif ($title =~ m/^A (.*)/) 
-		{$nonsort = "A";
-		$title=$1} 
-	elsif ($title =~ m /^An (.*)/) 
-		{$nonsort = "An";
-		$title=$1}; 
-	
-	if ($nonsort) {$fh->print ("\t<mods:nonSort>$nonsort <\/mods:nonSort>\n")};
-
-
-	$fh->print ("\t<mods:title>$title<\/mods:title>\n");
-	if ($subtitle) 
-		{$fh->print ("\t<mods:subTitle>$subtitle<\/mods:subTitle>\n");}
-	$fh->print("<\/mods:titleInfo>\n\n");
-
-
-
-### 2. MODS Name Element
-
-	print "Before while loop: CurrentRow is $CurrentRow; LastRow is $LastRow; wfID is $wfID\n"; 
-
-	my $namesToProcess="true";
-
-	my $NextID = $Sheet->Range('A'.($CurrentRow+1))->{Value};
-
-	while ($namesToProcess eq "true") 
+		while (my $row=shift @$usedRange)
 		{
 
-		if ($shortname && $given2)
+
+			$fh->print("<mods:mods>\n");
+			if ($project_type eq "spreadsheet") 
 			{
-			$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
-			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
-			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
-			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
-			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
-			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
-			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"\">marcrelator<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
-			$fh->print ("<mods:description>$shortname<\/mods:description>\n");
-			$fh->print ("<\/mods:name>\n");
+			($wfID, $authors, $title, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage, $doi, $setText) = @$row;
+			mods_title($fh, $title, $subtitle);
+			mods_name_element_spreadsheet($fh, $authors, $data);
+			mods_type_of_resource($fh);
+			mods_genre_spreadsheet($fh);
+			mods_origin_info($fh, $chron1);
+			mods_language($fh);
+			mods_physical_description($fh, $digital_origin);
+			mods_note($fh, my $setText, '1', $doi, 'article', $journalTitle, $enum1, $enum2, $startPage, $endPage);
+			mods_related_item($fh, '1', $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage);
+			mods_access_condition($fh);
+			mods_extension($fh, $doi);
+			mods_record_info($fh);
 
 			}
-
-		if ($shortname && !$given2)
+			else
 			{
-			$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
-			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
-			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
-			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
-			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
-			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
-			$fh->print ("<mods:description>$shortname<\/mods:description>\n");
-			$fh->print ("<\/mods:name>\n");
+			($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version) = @$row;
+			mods_title($fh, $title, $subtitle);
 
-			}
-		if (!$shortname && $given2)
-			{
-			$fh->print ("<mods:name type=\"personal\">\n\t");
-			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
-			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
-			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
-			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
-
-			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
-			$fh->print ("<\/mods:name>\n");
-
-			}
-
-		if (!$shortname && !$given2)
-			{
-			$fh->print ("<mods:name type=\"personal\">\n\t");
-			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
-			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
-			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
-			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
-			$fh->print ("<\/mods:name>\n");
-
-			}
-		
-		if ($Sheet->Range('A'.($CurrentRow+1))->{Value} && $wfID == $Sheet->Range('A'.($CurrentRow+1))->{Value})
-
-			{
-				print "next row is another one for this record\n";
-				$row = shift @$usedRange;
-				($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $digitalOrigin) = @$row;
-				
-
-				$CurrentRow++;
+			my $namesToProcess="true";
 			
-			}
-		else
+
+			while ($namesToProcess eq "true")
 			{
-				$namesToProcess="false";
-			}
-		}
+				mods_name_element_database($fh, $wfID, $marcRelatorCode, $family, $given, $given2, $shortname, $dept, $school);
+	
+				if ($Sheet->Range('A'.($CurrentRow+1))->{Value} && $wfID == $Sheet->Range('A'.($CurrentRow+1))->{Value})
+				{
 
+					$row = shift @$usedRange;
+					 ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version)= @$row;
 
-### 3. MODS TypeOfResource Element
+		
+					$CurrentRow++;	
+				}
 
-$fh->print("<mods:typeOfResource>text<\/mods:typeOfResource>\n\n");
-
-### 4. MODS Genre Element
-
-
-$fh->print("<mods:genre authority=\"marcgt\" type=\"workType\">$type<\/mods:genre>\n\n");
- 
-### 5. MODS OriginInfo Element
-
-$fh->print("<mods:originInfo>\n");
-	if ($chron1) {$fh->print("\t<mods:dateIssued>$chron1<\/mods:dateIssued>\n");}
-	if ($chron1) {$fh->print("\t<mods:dateIssued encoding=\"w3cdtf\" keyDate=\"yes\">$chron1<\/mods:dateIssued>\n");}
-	$fh->print("\t<mods:issuance>monographic<\/mods:issuance>\n");
-$fh->print("<\/mods:originInfo>\n\n");
-
-### 6.  MODS Language Element
-
-$fh->print("<mods:language>\n\t<mods:languageTerm type=\"text\">English<\/mods:languageTerm>\n\t<mods:languageTerm type=\"code\" authority=\"iso639-2b\">eng<\/mods:languageTerm>\n<\/mods:language>\n\n");
-
-### 7. MODS Physical Description
-
-$fh->print("<mods:physicalDescription>\n");
-	$fh->print("\t<mods:form authority=\"marcform\">electronic<\/mods:form>\n");
-	$fh->print("\t<mods:internetMediaType>application/pdf<\/mods:internetMediaType>\n");
-
-	if ($digitalOrigin==1)
-			{
-				$fh->print("\t<mods:digitalOrigin>reformatted digital<\/mods:digitalOrigin>\n");
-			}
-	if ($digitalOrigin==2)
-			{
-				$fh->print("\t<mods:digitalOrigin>born digital<\/mods:digitalOrigin>\n");
-			}		
-	if ($digitalOrigin==3)
-			{
-				$fh->print("\t<mods:digitalOrigin>digitized other analog<\/mods:digitalOrigin>\n");
+				else
+				{			
+					$namesToProcess="false";
+					$CurrentRow++;
+				}
 			}
 
-$fh->print("<\/mods:physicalDescription>\n\n");
 
-### 8. MODS Abstract
+			mods_type_of_resource($fh);
+			mods_genre_database($fh, $type);
+			mods_origin_info($fh, $chron1);
+			mods_language($fh);
+			mods_physical_description($fh, $digital_origin);
+			mods_note($fh, $setText, $version, $doi, $type, $journalTitle, $enum1, $enum2, $startPage, $endPage);
+			mods_related_item($fh, $version, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage);
+			mods_access_condition($fh);
+			mods_extension($fh, $url);
+			mods_record_info($fh);
 
+
+			}
+
+			$fh->print("<\/mods:mods>\n\n");
+		};
+
+	
+	close_output_file ($fh);
+
+
+};
+
+sub mods_record_info
+{
+my $fh = shift;
+
+
+### 20. MODS RecordInfo Element
+
+$fh->print("<mods:recordInfo>\n");	
+	$fh->print("\t<mods:recordContentSource>MChB<\/mods:recordContentSource>\n");
+
+
+	$fh->print("\t<mods:languageOfCataloging>\n\t\t<mods:languageTerm type=\"text\">English<\/mods:languageTerm>\n\t\t<mods:languageTerm type=\"code\" authority=\"iso639-2b\">eng<\/mods:languageTerm>\n\t<\/mods:languageOfCataloging>\n\n");
+$fh->print("<\/mods:recordInfo>\n");
+
+
+}
+
+sub mods_extension
+{
+my ($fh, $file) = @_;
+
+### 19. MODS Extension Element
+
+	$fh->print("<mods:extension>\n\t");
+	$fh->print("<ingestFile>$file<\/ingestFile>\n\t");
+	$fh->print("<\/mods:extension>\n");
+}
+
+
+sub mods_access_condition
+{
+
+my $fh=shift;
+### 16. MODS Access Condition
+	$fh->print("<mods:accessCondition type=\"useAndReproduction\">These materials are made available for use in research, teaching and private study, pursuant to U.S. Copyright Law. The user must assume full responsibility for any use of the materials, including but not limited to, infringement of copyright and publication rights of reproduced materials. Any materials used for academic research or otherwise should be fully credited with the source. The publisher or original authors may retain copyright to the materials.<\/mods:accessCondition>\n");
+
+}
+
+sub mods_related_item
+{
+
+my ($fh, $version, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage) = @_;
+### 14. MODS RelatedItem element
+
+
+if ($version == 1)
+	{
+	$fh->print("<mods:relatedItem type=\"host\">\n\t<mods:titleInfo>");
+	my $hostnonsort;
+	if ($journalTitle =~ m/^The (.*)/) 
+		{$hostnonsort = "The"; 
+		$journalTitle=$1} 
+	elsif ($journalTitle =~ m/^A (.*)/) 
+		{$hostnonsort = "A";
+		$journalTitle=$1} 
+	elsif ($journalTitle =~ m /^An (.*)/) 
+		{$hostnonsort = "An";
+		$journalTitle=$1}; 
+	
+	if ($hostnonsort) {$fh->print ("\n\t\t<mods:nonSort>$hostnonsort <\/mods:nonSort>\n")};
+
+
+	$fh->print ("\n\t\t<mods:title>$journalTitle<\/mods:title>\n");
+
+$fh->print("\n\t<\/mods:titleInfo>\n");
+	if ($issn) {$fh->print("\t<mods:identifier type=\"issn\">$issn<\/mods:identifier>\n");};
+	  
+ $fh->print("\t<mods:part>\n\t\t<mods:detail level=\"1\" type=\"volume\">\n\t\t<mods:number>$enum1<\/mods:number>\n\t\t<\/mods:detail>\n");
+
+if ($enum2) {$fh->print ("\t\t<mods:detail level=\"2\" type=\"issue\">\n\t\t<mods:number>$enum2<\/mods:number>\n\t\t<\/mods:detail>\n");};
+
+if ($startPage) {$fh->print ("\t\t<mods:extent unit=\"pages\">\n\t\t<mods:start>$startPage<\/mods:start>\n");
+
+if ($startPage && $endPage) {$fh->print ("\t\t\t<mods:end>$endPage<\/mods:end>\n\t\t\t<mods:list>pp. $startPage-$endPage<\/mods:list>\n");}
+else {$fh->print ("\t\t\t<mods:list>p. $startPage<\/mods:list>\n");}
+
+$fh->print ("\t\t</mods:extent>\n");}
+
+	if ($chron2){$fh->print("\t\t<mods:date>$chron2 $chron1<\/mods:date>\n\t<\/mods:part>\n");}
+	else {$fh->print("\t\t<mods:date>$chron1<\/mods:date>\n\t<\/mods:part>\n");};
+
+
+	$fh->print("<\/mods:relatedItem>\n");
+	}
+
+}
+
+sub mods_note
+{
+
+my ($fh, $setText, $version, $doi, $type, $journalTitle, $enum1, $enum2, $startPage, $endPage)= @_;
 
 ### 11. MODS Note Element
+
+
 if ($setText) {$fh->print("\t<mods:note>$setText<\/mods:note>\n\n");}
 
 if (($type ne "working paper") && $version==1)  
@@ -269,7 +235,7 @@ if (($type ne "working paper") && $version==1)
 		elsif ($journalTitle =~ m/^A (.*)/) 
 			{$hostnonsort = "A";
 			$journalTitle=$1} 
-		elsif ($title =~ m /^An (.*)/) 
+		elsif ($journalTitle =~ m /^An (.*)/) 
 			{$hostnonsort = "An";
 			$journalTitle=$1}; 
 	
@@ -297,95 +263,361 @@ if (($type ne "working paper") && $version==1)
 	}
 
 
-### 11. MODS Subject Element
+
+}
+
+sub mods_physical_description
+{
+my $fh = shift;
+my $digital_origin = shift;
+
+### 7. MODS Physical Description
+
+$fh->print("<mods:physicalDescription>\n");
+	$fh->print("\t<mods:form authority=\"marcform\">electronic<\/mods:form>\n");
+	$fh->print("\t<mods:internetMediaType>application/pdf<\/mods:internetMediaType>\n");
+	$fh->print("\t<mods:digitalOrigin>$digital_origin<\/mods:digitalOrigin>\n");
+$fh->print("<\/mods:physicalDescription>\n\n");
+
+};
+
+sub mods_language
+{
+
+my $fh = shift;
+### 6.  MODS Language Element
+
+$fh->print("<mods:language>\n\t<mods:languageTerm type=\"text\">English<\/mods:languageTerm>\n\t<mods:languageTerm type=\"code\" authority=\"iso639-2b\">eng<\/mods:languageTerm>\n<\/mods:language>\n\n");
 
 
-### 14. MODS RelatedItem element
 
-if ($version == 1)
-	{
-	$fh->print("<mods:relatedItem type=\"host\">\n\t<mods:titleInfo>");
-	my $hostnonsort;
-	if ($journalTitle =~ m/^The (.*)/) 
-		{$hostnonsort = "The"; 
-		$journalTitle=$1} 
-	elsif ($journalTitle =~ m/^A (.*)/) 
-		{$hostnonsort = "A";
-		$journalTitle=$1} 
-	elsif ($title =~ m /^An (.*)/) 
-		{$hostnonsort = "An";
-		$journalTitle=$1}; 
-	
-	if ($hostnonsort) {$fh->print ("\n\t\t<mods:nonSort>$hostnonsort <\/mods:nonSort>\n")};
+}
 
+sub mods_origin_info
+{
+my $fh = shift;
+my $chron1 = shift;
 
-	$fh->print ("\n\t\t<mods:title>$journalTitle<\/mods:title>\n");
+### 5. MODS OriginInfo Element
 
-$fh->print("\n\t<\/mods:titleInfo>\n");
-	if ($issn) {$fh->print("\t<mods:identifier type=\"issn\">$issn<\/mods:identifier>\n");};
-	  
- $fh->print("\t<mods:part>\n\t\t<mods:detail level=\"1\" type=\"volume\">\n\t\t              <mods:number>$enum1<\/mods:number>\n\t\t<\/mods:detail>\n");
-
-if ($enum2) {$fh->print ("\t\t<mods:detail level=\"2\" type=\"issue\">\n\t\t               <mods:number>$enum2<\/mods:number>\n\t\t<\/mods:detail>\n");};
-
-$fh->print ("\t\t<mods:extent unit=\"pages\">\n\t\t<mods:start>$startPage<\/mods:start>\n");
-
-if ($endPage) {$fh->print ("\t\t\t<mods:end>$endPage<\/mods:end>\n\t\t\t<mods:list>pp. $startPage-$endPage<\/mods:list>\n");}
-else {$fh->print ("\t\t\t<mods:list>p. $startPage<\/mods:list>\n");}
-
-$fh->print ("\t\t</mods:extent>\n");
-
-	if ($chron2){$fh->print("\t\t<mods:date>$chron2 $chron1<\/mods:date>\n\t<\/mods:part>\n");}
-	else {$fh->print("\t\t<mods:date>$chron1<\/mods:date>\n\t<\/mods:part>\n");};
+$fh->print("<mods:originInfo>\n");
+	if ($chron1) {$fh->print("\t<mods:dateIssued>$chron1<\/mods:dateIssued>\n");}
+	if ($chron1) {$fh->print("\t<mods:dateIssued encoding=\"w3cdtf\" keyDate=\"yes\">$chron1<\/mods:dateIssued>\n");}
+	$fh->print("\t<mods:issuance>monographic<\/mods:issuance>\n");
+$fh->print("<\/mods:originInfo>\n\n");
+}
 
 
-	$fh->print("<\/mods:relatedItem>\n");
+sub mods_genre_spreadsheet
+{
+### 4. MODS Genre Element
+my $fh = shift;
+
+
+$fh->print("<mods:genre authority=\"marcgt\" type=\"workType\">article<\/mods:genre>\n\n");
+
+
+}
+
+sub mods_genre_database
+{
+### 4. MODS Genre Element
+my $fh = shift;
+my $type = shift;
+
+$fh->print("<mods:genre authority=\"marcgt\" type=\"workType\">$type<\/mods:genre>\n\n");
+
+
+}
+
+
+sub mods_type_of_resource
+{
+### 3. MODS TypeOfResource Element
+my $fh = shift;
+$fh->print("<mods:typeOfResource>text<\/mods:typeOfResource>\n\n");
+
+}
+
+sub mods_name_element_database
+
+{
+
+my ($fh, $wfID, $marcRelatorCode, $family, $given, $given2, $shortname, $dept, $school) = @_;
+
+
+### 2. MODS Name Element
+
+		if ($shortname && $given2)
+			{
+			$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
+			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t");
+			if ($marcRelatorCode eq "Author") 
+				{$fh->print ("\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>");}
+			$fh->print ("\n\t<\/mods:role>\n\t<mods:description>$shortname<\/mods:description>\n");
+			$fh->print ("<\/mods:name>\n");
+
+			}
+
+
+		if ($shortname && !$given2)
+			{
+			$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
+			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t");
+			if ($marcRelatorCode eq "Author") 
+				{$fh->print ("\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>");}
+			$fh->print ("\n\t<\/mods:role>\n\t<mods:description>$shortname<\/mods:description>\n");
+			$fh->print ("<\/mods:name>\n");
+			}
+
+
+		if (!$shortname && $given2)
+			{
+			$fh->print ("<mods:name type=\"personal\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given2<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given $given2<\/mods:displayForm>\n\t");
+
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t");
+			if ($marcRelatorCode eq "Author") 
+				{$fh->print("\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>");}
+			$fh->print ("\n\t<\/mods:role>\n\t<\/mods:name>\n");
+
+			}
+
+
+
+		if (!$shortname && !$given2)
+			{
+			$fh->print ("<mods:name type=\"personal\">\n\t");
+			$fh->print ("<mods:namePart type=\"family\">$family<\/mods:namePart>\n\t");
+			$fh->print ("<mods:namePart type=\"given\">$given<\/mods:namePart>\n\t");
+			$fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");
+			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t");
+			if ($marcRelatorCode eq "Author") 
+				{$fh->print("\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>");}
+			$fh->print ("\n\t<\/mods:role>\n\t<\/mods:name>\n");
+
+			
+			}
+
+}
+
+sub mods_name_element_spreadsheet
+{
+#Read a tab-delimited line of metadata and assign each element to an appropriately named variable
+#
+my $fh=shift;
+my $authors = shift;
+my $data = shift;
+my $family;
+my $given; 
+my $given2;
+my $dept;
+my $school;
+
+
+my @authors = split(/\s*;\s*/, $authors);
+
+
+foreach (@authors) {
+
+
+my $display_form = $_;
+my ($family_name, $given_name) = split(/\s*,\s*/, $display_form);
+if ($given_name) { $given_name =~ s/\s*$//;}
+my $isFaculty='false';
+
+###### attempt to use username
+foreach my $e (@{$data->{'facultyNames'}})  {
+
+	if ($e->{'shortname'} && $e->{'shortname'} eq $display_form) {
+		$isFaculty='true';
+
+		if ($e->{'naf'} && $e->{'naf'}=~m/\d*/)
+			{$fh->print ("<mods:name type=\"personal\" authority=\"naf\">\n\t");}
+		else {$fh->print ("<mods:name type=\"personal\">\n\t");}
+
+		$fh->print ("<mods:namePart type=\"family\">$e->{'family'}<\/mods:namePart>\n\t");
+		$fh->print ("<mods:namePart type=\"given\">$e->{'given'}<\/mods:namePart>\n\t");
+		$fh->print ("<mods:affiliation>$e->{'DEPT'}, $e->{'SCHL_CD'}<\/mods:affiliation>\n\t");
+		$fh->print ("<mods:displayForm>$e->{'calc'}<\/mods:displayForm>\n\t");
+		$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">Author<\/mods:roleTerm>\n\t\t");
+		$fh->print ("<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>\n\t<\/mods:role>\n\t");
+
+		$fh->print ("<mods:description>$e->{'shortname'}<\/mods:description>\n");
+		$fh->print ("<\/mods:name>\n");
+
+		}
+
 	}
 
-### 15. Mods Identifier
-if ($doi && $version == 1) {$fh->print("\t<mods:identifier type=\"doi\">$doi<\/mods:identifier>\n\n");}
-### 16. MODS Location Element
-
-##if ($url) {
-##	$fh->print("<mods:location>\n\t");
-##	$fh->print("<mods:url displayLabel=\"Link to document\">$url<\/mods:url>\n\t");
-##	$fh->print("<\/mods:location>\n");
-##	};
+if ($isFaculty eq 'false')  {
+###Personal Name
 
 
-### 16. MODS Access Condition
-	$fh->print("<mods:accessCondition type=\"useAndReproduction\">These materials are made available for use in research, teaching and private study, pursuant to U.S. Copyright Law. The user must assume full responsibility for any use of the materials, including but not limited to, infringement of copyright and publication rights of reproduced materials. Any materials used for academic research or otherwise should be fully credited with the source. The publisher or original authors may retain copyright to the materials.<\/mods:accessCondition>\n");
 
-### 19. MODS Extension Element
+$fh->print ("<mods:name type=\"personal\">\n\t<mods:namePart type=\"family\">$family_name<\/mods:namePart>\n\t<mods:namePart type=\"given\">$given_name<\/mods:namePart>\n\t<mods:displayForm>$display_form<\/mods:displayForm>\n\t<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">Author<\/mods:roleTerm>\n\t\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>\n\t<\/mods:role>\n<\/mods:name>\n\n");};
 
-if ($url) {
-	$fh->print("<mods:extension>\n\t");
-	$fh->print("<ingestFile>$url<\/ingestFile>\n\t");
-
-	$fh->print("<\/mods:extension>\n");
-	};
+	} 
 
 
-### 20. MODS RecordInfo Element
 
-$fh->print("<mods:recordInfo>\n");	
-	$fh->print("\t<mods:recordContentSource>MChB<\/mods:recordContentSource>\n");
+};
+
+sub mods_title
+{
+#Read a tab-delimited line of metadata and assign each element to an appropriately named variable
+#
+my $fh=shift;
+my $title=shift;
+my $subtitle=shift;
 
 
-	$fh->print("\t<mods:languageOfCataloging>\n\t\t<mods:languageTerm type=\"text\">English<\/mods:languageTerm>\n\t\t<mods:languageTerm type=\"code\" authority=\"iso639-2b\">eng<\/mods:languageTerm>\n\t<\/mods:languageOfCataloging>\n\n");
-$fh->print("<\/mods:recordInfo>\n");
 
-### Close MODS Record
+### 1. MODS TitleInfo Element
 
-	$fh->print("<\/mods:mods>\n\n");
+$fh->print("<mods:titleInfo>\n");
 
-### Increment CurrentRow
+##Deal with initial articles
+my $nonsort;
+if ($title =~ m/^The (.*)/) 
+	{$nonsort = "The"; 
+	$title=$1} 
+elsif ($title =~ m/^A (.*)/) 
+	{$nonsort = "A";
+	$title=$1} 
+elsif ($title =~ m /^An (.*)/) 
+	{$nonsort = "An";
+	$title=$1}; 
 
-$CurrentRow++;
+if ($nonsort) {$fh->print ("\t<mods:nonSort>$nonsort <\/mods:nonSort>\n")};
+
+$fh->print ("\t<mods:title>$title<\/mods:title>\n");
+if ($subtitle) 
+	{$fh->print ("\t<mods:subTitle>$subtitle<\/mods:subTitle>\n");}
+$fh->print("<\/mods:titleInfo>\n\n");
 
 };
 
 
-#
+sub digital_origin_determination
+{
+	print "\n\nWhat is the digital origin of this stuff?: ";
+	my $digital_origin = <STDIN>; 
+	chomp $digital_origin;
+	exit 0 if ($digital_origin ne "born digital" && $digital_origin ne "reformatted digital"); 
+	return ($digital_origin);
+}
+
+sub project_type_determination
+{
+#Now that we've had that fun -- we need the program to be smart enough to know if you are working from a pdf style spreadsheet project or an export from the workflow database -- here's one way
+
+	print "\n\nProject type: eScholarship database export \nor pdf project spreadhsheet? \nEnter database or spreadsheet: ";
+	my $project_type = <STDIN>; 
+	chomp $project_type;
+	exit 0 if ($project_type ne "database" && $project_type ne "spreadsheet"); 
+	return ($project_type);
+}
+
+sub close_output_file{
+my $fh=shift;
 $fh->print("<\/mods:modsCollection>\n");
 $fh->close();
+
+};
+
+
+sub open_ouput_file {
+
+my $fh=shift;
+
+#Open the output file; print xml declaration and root node
+#
+$fh = IO::File->new($fh.'.xml', 'w')
+	or die "unable to open output file for writing: $!";
+binmode($fh, ':utf8');
+$fh->print("<?xml version='1.0' encoding='UTF-8' ?>\n");
+$fh->print("<mods:modsCollection xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:mods=\"http://www.loc.gov/mods/v3\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-4.xsd\">\n");
+
+
+
+return($fh);
+
+};
+
+sub read_faculty_names_xml
+{
+
+# create object
+my $xml = new XML::Simple;
+
+# read XML file
+my $data = $xml->XMLin("facultyNames.xml");
+
+#commenting this block out, cause we've already proved PERL is reading the xml file from ACCESS
+#use Data Dumper to confirm xml file was read into perl
+#print Dumper($data);  
+
+return($data);
+
+};
+
+sub setup_EXCEL_object {
+
+
+#Get the name of the excel workbook and worksheet you want to process
+print "\n\nEnter the name of the Excel file containing \nthe data you wish to convert to MODS: ";
+my $excelfile = <STDIN>; 
+chomp $excelfile; 
+exit 0 if (!$excelfile);
+
+print "\n\nName of the worksheet containing the \ndata you wish to convert to MODS: ";
+my $worksheet_name = <STDIN>; 
+chomp $worksheet_name; 
+exit 0 if (!$worksheet_name);
+
+my $dir = getcwd;
+$dir=~s/\//\\/g;
+#print "dir is $dir\n";
+$excelfile=$dir."\\".$excelfile;
+
+#Get Ready to use $Win32::OLE
+
+$Win32::OLE::Warn = 3; # Die on Errors.
+
+# ::Warn = 2; throws the errors, but #
+# expects that the programmer deals  #
+
+#Create an EXCEL object to work with and define how the object is going to exit
+
+my $Excel = Win32::OLE->GetActiveObject('Excel.Application')
+        || Win32::OLE->new('Excel.Application', 'Quit');
+
+#Turn off all the alert boxes, such as the SaveAs response "This file already exists", etc. using the DisplayAlerts property.
+
+$Excel->{DisplayAlerts}=0;   
+
+#Open an existing file to work with 
+                                                 
+my $book_object = $Excel->Workbooks->Open($excelfile);   
+
+#Create a reference to a worksheet object and activate the sheet to give it focus so that actions taken on the workbook or application objects occur on this sheet unless otherwise specified.
+
+my $sheet_object = $book_object->Worksheets($worksheet_name);
+$sheet_object->Activate();  
+
+return ($worksheet_name, $sheet_object, $Excel);
+}
+
