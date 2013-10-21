@@ -49,7 +49,7 @@ sub main
 			mods_origin_info($fh, $chron1);
 			mods_language($fh);
 			mods_physical_description($fh, $digital_origin);
-			mods_note($fh, my $setText, '1', $doi, 'article', $journalTitle, $enum1, $enum2, $startPage, $endPage);
+			mods_note($fh, $setText, '1', $doi, 'article', $journalTitle, $enum1, $enum2, $startPage, $endPage);
 			mods_note_spreadsheet($fh);
 			mods_related_item($fh, '1', $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage);
 			mods_access_condition($fh);
@@ -489,7 +489,7 @@ my ($fh, $wfID, $marcRelatorCode, $family, $given, $given2, $shortname, $dept, $
 sub mods_name_element_spreadsheet
 {
 #Read a tab-delimited line of metadata and assign each element to an appropriately named variable
-
+#
 my $fh=shift;
 my $authors = shift;
 my $data = shift;
