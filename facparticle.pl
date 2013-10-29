@@ -14,7 +14,7 @@ main();
 sub main 
 {
 
-	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors);
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors, $copyright);
 
 	my($worksheet_name, $Sheet, $excel_object) = setup_EXCEL_object(shift);
 
@@ -41,7 +41,7 @@ sub main
 			$fh->print("<mods:mods>\n");
 			if ($project_type eq "spreadsheet") 
 			{
-			($wfID, $authors, $title, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage, $doi, $setText) = @$row;
+			($wfID, $authors, $title, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage, $doi, $setText, $copyright) = @$row;
 			mods_title($fh, $title, $subtitle);
 			mods_name_element_spreadsheet($fh, $authors, $data);
 			mods_type_of_resource($fh);
@@ -52,7 +52,7 @@ sub main
 			mods_note($fh, $setText, '1', $doi, 'article', $journalTitle, $enum1, $enum2, $startPage, $endPage);
 			mods_note_spreadsheet($fh);
 			mods_related_item($fh, '1', $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage);
-			mods_access_condition($fh);
+			mods_access_condition_spreadsheet ($fh, $copyright);
 			mods_identifier($fh, $doi);
 			mods_extension($fh, $doi);
 			mods_record_info($fh);
@@ -371,6 +371,22 @@ my $fh=shift;
 
 }
 
+sub mods_access_condition_spreadsheet
+{
+
+my ($fh, $copyright) = @_;
+
+	if ($copyright) {
+		my $fh=shift;
+		$fh->print("<mods:accessCondition type=\"useAndReproduction\">$copyright<\/mods:accessCondition>\n");
+		}
+	
+	else	{
+		my $fh=shift;
+		$fh->print("<mods:accessCondition type=\"useAndReproduction\">These materials are made available for use in research, teaching and private study, pursuant to U.S. Copyright Law. The user must assume full responsibility for any use of the materials, including but not limited to, infringement of copyright and publication rights of reproduced materials. Any materials used for academic research or otherwise should be fully credited with the source. The publisher or original authors may retain copyright to the materials.<\/mods:accessCondition>\n");
+	}
+
+}
 
 
 ### MODS Identifier Element
