@@ -14,7 +14,7 @@ main();
 sub main 
 {
 
-	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors, $digitalOrigin, $accessCondition);
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors, $digitalOrigin, $accessCondition, $file);
 
 	my($worksheet_name, $Sheet, $excel_object) = setup_EXCEL_object(shift);
 
@@ -41,7 +41,7 @@ sub main
 			$fh->print("<mods:mods>\n");
 			if ($project_type eq "spreadsheet") 
 			{
-			($wfID, $authors, $title, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage, $doi, $setText, $accessCondition) = @$row;
+			($wfID, $authors, $title, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage, $doi, $setText, $accessCondition, $file) = @$row;
 			mods_title($fh, $title, $subtitle);
 			mods_name_element_spreadsheet($fh, $authors, $data);
 			mods_type_of_resource($fh);
@@ -54,13 +54,13 @@ sub main
 			mods_related_item($fh, '1', $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage);
 			mods_access_condition($fh, $accessCondition);
 			mods_identifier($fh, $doi);
-			mods_extension($fh, $doi);
+			mods_extension($fh, $file);
 			mods_record_info($fh);
 
 			}
 			else
 			{
-			($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $digitalOrigin, $accessCondition) = @$row;
+			($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $file ,$doi, $setText, $ready, $version, $digitalOrigin, $accessCondition) = @$row;
 			mods_title($fh, $title, $subtitle);
 
 			my $namesToProcess="true";
@@ -74,7 +74,7 @@ sub main
 				{
 
 					$row = shift @$usedRange;
-					 ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $digitalOrigin, $accessCondition)= @$row;
+					 ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $file ,$doi, $setText, $ready, $version, $digitalOrigin, $accessCondition)= @$row;
 
 		
 					$CurrentRow++;	
@@ -95,8 +95,9 @@ sub main
 			mods_physical_description($fh, $digital_origin);
 			mods_note($fh, $setText, $version, $doi, $type, $journalTitle, $enum1, $enum2, $startPage, $endPage);
 			mods_related_item($fh, $version, $journalTitle, $issn, $enum1, $enum2, $chron1, $chron2, $startPage, $endPage);
+			mods_identifier($fh, $doi);
 			mods_access_condition($fh, $accessCondition);
-			mods_extension($fh, $url);
+			mods_extension($fh, $file);
 			mods_record_info($fh);
 
 
@@ -335,7 +336,7 @@ if ($version == 1)
 
 	$fh->print ("\n\t\t<mods:title>$journalTitle<\/mods:title>\n");
 
-$fh->print("\n\t<\/mods:titleInfo>\n");
+$fh->print("\t<\/mods:titleInfo>\n");
 	if ($issn) {$fh->print("\t<mods:identifier type=\"issn\">$issn<\/mods:identifier>\n");};
 	  
  $fh->print("\t<mods:part>\n\t\t<mods:detail level=\"1\" type=\"volume\">\n\t\t<mods:number>$enum1<\/mods:number>\n\t\t<\/mods:detail>\n");
@@ -353,7 +354,7 @@ $fh->print ("\t\t</mods:extent>\n");}
 	else {$fh->print("\t\t<mods:date>$chron1<\/mods:date>\n\t<\/mods:part>\n");};
 
 
-	$fh->print("<\/mods:relatedItem>\n");
+	$fh->print("<\/mods:relatedItem>\n\n");
 	}
 
 }
@@ -369,12 +370,12 @@ my ($fh, $accessCondition) = @_;
 
 	if ($accessCondition) {
 		my $fh=shift;
-		$fh->print("<mods:accessCondition type=\"useAndReproduction\">$accessCondition<\/mods:accessCondition>\n");
+		$fh->print("<mods:accessCondition type=\"useAndReproduction\">$accessCondition<\/mods:accessCondition>\n\n");
 		}
 	
 	else	{
 		my $fh=shift;
-		$fh->print("<mods:accessCondition type=\"useAndReproduction\">These materials are made available for use in research, teaching and private study, pursuant to U.S. Copyright Law. The user must assume full responsibility for any use of the materials, including but not limited to, infringement of copyright and publication rights of reproduced materials. Any materials used for academic research or otherwise should be fully credited with the source. The publisher or original authors may retain copyright to the materials.<\/mods:accessCondition>\n");
+		$fh->print("<mods:accessCondition type=\"useAndReproduction\">These materials are made available for use in research, teaching and private study, pursuant to U.S. Copyright Law. The user must assume full responsibility for any use of the materials, including but not limited to, infringement of copyright and publication rights of reproduced materials. Any materials used for academic research or otherwise should be fully credited with the source. The publisher or original authors may retain copyright to the materials.<\/mods:accessCondition>\n\n");
 	}
 
 }
@@ -386,7 +387,7 @@ sub mods_identifier
 {
 my ($fh, $doi) = @_;
 
-	$fh->print("<mods:identifier type=\"doi\">$doi<\/mods:identifier>\n");
+	$fh->print("<mods:identifier type=\"doi\">$doi<\/mods:identifier>\n\n");
 }
 
 
@@ -398,8 +399,8 @@ sub mods_extension
 my ($fh, $file) = @_;
 
 	$fh->print("<mods:extension>\n\t");
-	$fh->print("<ingestFile>$file<\/ingestFile>\n\t");
-	$fh->print("<\/mods:extension>\n");
+	$fh->print("<ingestFile>$file<\/ingestFile>\n");
+	$fh->print("<\/mods:extension>\n\n");
 }
 
 
@@ -411,11 +412,11 @@ sub mods_record_info
 my $fh = shift;
 
 $fh->print("<mods:recordInfo>\n");	
-	$fh->print("\t<mods:recordContentSource>MChB<\/mods:recordContentSource>\n");
+	$fh->print("\t<mods:recordContentSource>MChB<\/mods:recordContentSource>\n\n");
 
 
-	$fh->print("\t<mods:languageOfCataloging>\n\t\t<mods:languageTerm type=\"text\">English<\/mods:languageTerm>\n\t\t<mods:languageTerm type=\"code\" authority=\"iso639-2b\">eng<\/mods:languageTerm>\n\t<\/mods:languageOfCataloging>\n\n");
-$fh->print("<\/mods:recordInfo>\n");
+	$fh->print("\t<mods:languageOfCataloging>\n\t\t<mods:languageTerm type=\"text\">English<\/mods:languageTerm>\n\t\t<mods:languageTerm type=\"code\" authority=\"iso639-2b\">eng<\/mods:languageTerm>\n\t<\/mods:languageOfCataloging>\n");
+$fh->print("<\/mods:recordInfo>\n\n");
 
 
 }
