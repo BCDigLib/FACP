@@ -206,7 +206,7 @@ sub mods_genre
 my $fh = shift;
 my $type = shift;
 
-$fh->print("<mods:genre authority=\"local\" type=\"work type\" usage=\"primary\">$type<\/mods:genre>\n\n");
+$fh->print("<mods:genre authority=\"marcgt\" type=\"work type\" usage=\"primary\">$type<\/mods:genre>\n\n");
 
 }
 
