@@ -124,7 +124,7 @@ sub mods_title
 #
 my $fh=shift;
 my $title=shift;
-my $subtitle;
+my $subtitle=shift;
 
 if ($title =~ m/\&/i )
 	{$title =~ s/\&/\&amp;/g;};
@@ -399,7 +399,7 @@ sub mods_extension
 my ($fh, $file) = @_;
 
 	$fh->print("<mods:extension>\n\t");
-	$fh->print("<ingestFile>$file.pdf<\/ingestFile>\n");
+	$fh->print("<ingestFile>$file<\/ingestFile>\n");
 	$fh->print("<\/mods:extension>\n\n");
 }
 
@@ -430,7 +430,7 @@ my ($fh, $wfID, $marcRelatorCode, $family, $given, $given2, $name_year, $naf, $s
 
 	if ($naf && $naf =~m/\d+/)
 		{ $fh->print ("<mods:name type=\"personal\" authority=\"naf\" usage=\"primary\">\n\t");}
-	if ($naf && $naf =~ "yes")
+	elsif ($naf && $naf =~ "yes")
 		{ $fh->print ("<mods:name type=\"personal\" authority=\"naf\" usage=\"primary\">\n\t");}
 	else { $fh->print ("<mods:name type=\"personal\" usage=\"primary\">\n\t");}
 
