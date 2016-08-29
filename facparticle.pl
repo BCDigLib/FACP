@@ -14,7 +14,7 @@ main();
 sub main 
 {
 
-	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $name_year, $naf, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $enum3, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors, $accessCondition, $file);
+	my ($wfID, $marcRelatorCode, $authorOrder, $family, $given, $given2, $name_year, $naf, $shortname, $dept, $school, $title, $subtitle, $journalTitle, $enum1, $enum2, $enum3, $chron2, $chron1, $startPage, $endPage, $pageList, $issn, $type, $url ,$doi, $setText, $ready, $version, $authors, $accessCondition, $file, $urlScopus, $authors2, $publisher, $eid, $pdfArchiving);
 
 	my($worksheet_name, $Sheet, $excel_object) = setup_EXCEL_object(shift);
 
@@ -35,10 +35,10 @@ sub main
 
 			if ($project_type eq "spreadsheet") 
 			{
-			($authors, $title, $chron1, $journalTitle, $enum1, $enum2, $enum3, $startPage, $endPage, $doi, $issn, $setText, $accessCondition, $file) = @$row;
+			($authors, $title, $chron1, $journalTitle, $enum1, $enum2, $enum3, $startPage, $endPage, $doi, $urlScopus, $authors2, $publisher, $issn, $eid, $pdfArchiving, $setText, $accessCondition) = @$row;
 			
-			$file =~ s/\.pdf//;
-			my $fh=open_ouput_file($file);
+			$eid =~ s/\.pdf//;
+			my $fh=open_ouput_file($eid);
 			my $data = read_faculty_names_xml(); 
 			
 			mods_title($fh, $title);
@@ -49,10 +49,9 @@ sub main
 			mods_language($fh);
 			mods_physical_description($fh, $digitalOrigin);
 			mods_note($fh, $setText, '1', $doi, 'article', $journalTitle, $enum1, $enum2, $startPage, $endPage);
-			mods_note_spreadsheet($fh);
+			mods_note_spreadsheet($fh, $eid);
 			mods_related_item($fh, '1', $journalTitle, $issn, $enum1, $enum2, $chron1, '', $startPage, $endPage);
 			mods_access_condition($fh, $accessCondition);
-			mods_extension($fh, $file);
 			mods_record_info($fh);
 			
 			close_output_file ($fh);
@@ -321,8 +320,9 @@ my ($fh, $setText, $version, $doi, $type, $journalTitle, $enum1, $enum2, $startP
 sub mods_note_spreadsheet
 {
 my $fh = shift;
+my $eid = shift;
 
-$fh->print("<mods:note>Bibliographic data derived from Scopus<\/mods:note>\n\n");
+$fh->print("<mods:note>Record information derived from Scopus (EID\: $eid)<\/mods:note>\n\n");
 
 }
 
