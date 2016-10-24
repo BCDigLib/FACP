@@ -445,7 +445,11 @@ my ($fh, $wfID, $marcRelatorCode, $family, $given, $given2, $name_year, $naf, $s
 				$fh->print ("<mods:displayForm>$family, $given \($given2\), $name_year<\/mods:displayForm>\n\t");}
 			else { $fh->print ("<mods:displayForm>$family, $given \($given2\)<\/mods:displayForm>\n\t");}
 
-			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
+			if ($dept){
+			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");	
+			}
+			else {$fh->print ("<mods:affiliation>$school<\/mods:affiliation>\n\t");}
+			
 			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t");
 			if ($marcRelatorCode eq "Author") {$fh->print ("\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>");}
 			$fh->print ("\n\t<\/mods:role>\n\t<mods:description>$shortname<\/mods:description>\n");
@@ -463,7 +467,11 @@ my ($fh, $wfID, $marcRelatorCode, $family, $given, $given2, $name_year, $naf, $s
 				$fh->print ("<mods:displayForm>$family, $given, $name_year<\/mods:displayForm>\n\t");}
 			else { $fh->print ("<mods:displayForm>$family, $given<\/mods:displayForm>\n\t");}
 
-			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");
+			if ($dept){
+			$fh->print ("<mods:affiliation>$dept, $school<\/mods:affiliation>\n\t");	
+			}
+			else {$fh->print ("<mods:affiliation>$school<\/mods:affiliation>\n\t");}
+			
 			$fh->print ("<mods:role>\n\t\t<mods:roleTerm type=\"text\" authority=\"marcrelator\">$marcRelatorCode<\/mods:roleTerm>\n\t");
 			if ($marcRelatorCode eq "Author") 
 				{$fh->print ("\t<mods:roleTerm type=\"code\" authority=\"marcrelator\">aut<\/mods:roleTerm>");}
